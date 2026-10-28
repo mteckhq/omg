@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FaceAPI.js • In-Browser Vision & 128-D Face Recognition</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body class="dark-theme">
+  <!-- Toast notification container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-badge">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+          <line x1="9" y1="9" x2="9.01" y2="9"></line>
+          <line x1="15" y1="9" x2="15.01" y2="9"></line>
+        </svg>
+        <span class="logo-text">FaceAPI<span class="logo-ext">.js</span></span>
+      </div>
+      <div class="header-tagline">
+        Browser-Native Face Detection • 68-Point Landmarks • 128-Float Vector Embeddings
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div id="model-status-pill" class="status-pill loading">
+        <span class="status-dot"></span>
+        <span id="model-status-text">Loading Neural Networks...</span>
+      </div>
+      <div class="backend-pill">
+        <span class="pill-label">Backend:</span>
+        <span id="tf-backend-label" class="pill-val">WebGL (GPU)</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Model Readiness Tracker -->
+  <section class="models-bar">
+    <div class="model-chip" id="net-detector">
+      <span class="chip-status"></span>
+      <span class="chip-name">Face Detector</span>
+      <span class="chip-tech">SSD / TinyFace</span>
+    </div>
+    <div class="model-chip" id="net-landmarks">
+      <span class="chip-status"></span>
+      <span class="chip-name">68 Landmarks</span>
+      <span class="chip-tech">68-Pt Shape Net</span>
+    </div>
+    <div class="model-chip" id="net-recognition">
+      <span class="chip-status"></span>
+      <span class="chip-name">Face Recognition</span>
+      <span class="chip-tech">128-D ResNet-34</span>
+    </div>
+    <div class="model-chip" id="net-expressions">
+      <span class="chip-status"></span>
+      <span class="chip-name">Expressions</span>
+      <span class="chip-tech">7 Emotions Net</span>
+    </div>
+    <div class="model-chip" id="net-age-gender">
+      <span class="chip-status"></span>
+      <span class="chip-name">Age & Gender</span>
+      <span class="chip-tech">Demographic Net</span>
+    </div>
+  </section>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs">
+    <button class="nav-tab active" data-tab="tab-webcam">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+        <circle cx="12" cy="13" r="4"></circle>
+      </svg>
+      Live Webcam & Recognition
+    </button>
+    <button class="nav-tab" data-tab="tab-image">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+        <polyline points="21 15 16 10 5 21"></polyline>
+      </svg>
+      Image Inspector & 128-D Deep-Dive
+    </button>
+    <button class="nav-tab" data-tab="tab-compare">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="8.5" cy="7" r="4"></circle>
+        <line x1="20" y1="8" x2="20" y2="14"></line>
+        <line x1="23" y1="11" x2="17" y2="11"></line>
+      </svg>
+      Face Verification & 1:1 Comparator
+    </button>
+    <button class="nav-tab" data-tab="tab-database">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+      </svg>
+      Local Face Database
+      <span class="tab-counter-badge" id="tab-db-counter">0</span>
+    </button>
+    <button class="nav-tab" data-tab="tab-architecture">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+        <polyline points="2 17 12 22 22 17"></polyline>
+        <polyline points="2 12 12 17 22 12"></polyline>
+      </svg>
+      Architecture & 128-D Vector Math
+    </button>
+  </nav>
+
+  <!-- Main Content Container -->
+  <main class="main-content">
+    
+    <!-- ============================================== -->
+    <!-- TAB 1: LIVE WEBCAM & RECOGNITION               -->
+    <!-- ============================================== -->
+    <div id="tab-webcam" class="tab-pane active">
+      <div class="webcam-layout">
+        
+        <!-- Left Column: Video Viewport & Controls -->
+        <div class="webcam-viewport-col">
+          <div class="card viewport-card">
+            <div class="card-header">
+              <div class="card-title">
+                <span class="live-indicator" id="cam-live-indicator"></span>
+                <span>Webcam Stream</span>
+              </div>
+              <div class="hud-metrics">
+                <span class="metric-pill" id="webcam-fps">0 FPS</span>
+                <span class="metric-pill" id="webcam-latency">0 ms</span>
+                <span class="metric-pill" id="webcam-faces-count">0 Faces</span>
+              </div>
+            </div>
+
+            <!-- Video & Canvas overlay container -->
+            <div class="video-container" id="video-wrapper">
+              <video id="webcam-video" autoplay playsinline muted></video>
+              <canvas id="webcam-canvas"></canvas>
+
+              <div id="webcam-placeholder" class="webcam-placeholder">
+                <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                <div class="placeholder-title">Webcam Idle</div>
+                <div class="placeholder-desc">Click "Start Webcam" below to enable browser face detection</div>
+                <button id="btn-start-webcam" class="btn btn-primary btn-lg">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                  Start Webcam
+                </button>
+              </div>
+            </div>
+
+            <!-- Camera action bar -->
+            <div class="camera-actions">
+              <button id="btn-toggle-cam" class="btn btn-primary" disabled>
+                <span id="btn-cam-label">Start Camera</span>
+              </button>
+              <button id="btn-mirror-cam" class="btn btn-outline" title="Toggle camera horizontal mirror (Selfie Mode)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                  <path d="M12 3v18"></path>
+                  <path d="M16 7l4 5-4 5"></path>
+                  <path d="M8 7l-4 5 4 5"></path>
+                </svg>
+                <span id="btn-mirror-label">Mirror: ON</span>
+              </button>
+              <div class="detector-selector">
+                <label for="webcam-detector-model">Detector:</label>
+                <select id="webcam-detector-model" class="select-input">
+                  <option value="tiny" selected>Tiny Face Detector (High FPS)</option>
+                  <option value="ssd">SSD MobileNet v1 (High Accuracy)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Real-time 128-D vector stream -->
+            <div class="live-vector-card">
+              <div class="live-vector-header">
+                <span class="section-badge">Live Feature Vector</span>
+                <span class="live-vector-title">Active 128-Float ResNet Descriptor Stream</span>
+                <span id="live-vector-norm" class="norm-badge">‖v‖₂ = 0.000</span>
+              </div>
+              <canvas id="live-vector-canvas" class="live-vector-canvas"></canvas>
+              <div class="live-vector-caption">
+                Bars represent dimensions [0..127]. Cyan = positive float values, Pink = negative float values.
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Right Column: Settings & Face Enrollment -->
+        <div class="webcam-sidebar-col">
+
+          <!-- Layer Toggles -->
+          <div class="card sidebar-card">
+            <div class="card-header">
+              <div class="card-title">HUD Overlay Layers</div>
+            </div>
+            <div class="toggles-grid">
+              <label class="toggle-item">
+                <input type="checkbox" id="toggle-box" checked>
+                <span class="toggle-label">Target Bounding Box</span>
+              </label>
+              <label class="toggle-item">
+                <input type="checkbox" id="toggle-landmarks" checked>
+                <span class="toggle-label">68 Landmark Keypoints</span>
+              </label>
+              <label class="toggle-item">
+                <input type="checkbox" id="toggle-mesh" checked>
+                <span class="toggle-label">Facial Wireframe Mesh</span>
+              </label>
+              <label class="toggle-item">
+                <input type="checkbox" id="toggle-expressions" checked>
+                <span class="toggle-label">Emotion & Expressions</span>
+              </label>
+              <label class="toggle-item">
+                <input type="checkbox" id="toggle-age-gender" checked>
+                <span class="toggle-label">Age & Gender Prediction</span>
+              </label>
+              <label class="toggle-item">
+                <input type="checkbox" id="toggle-vector-spark" checked>
+                <span class="toggle-label">128-D Sparkline Badge</span>
+              </label>
+              <label class="toggle-item" style="border-top: 1px solid var(--border-subtle); padding-top: 8px; margin-top: 4px; grid-column: 1 / -1;">
+                <input type="checkbox" id="toggle-mirror-cam" checked>
+                <span class="toggle-label" style="color: var(--accent-cyan); font-weight: 500;">
+                  🪞 Mirror Camera Feed (Selfie Mode)
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Live Individual Recognition Status -->
+          <div class="card sidebar-card" id="webcam-identified-card" style="display:none;">
+            <div class="card-header">
+              <div class="card-title" style="color: var(--accent-green);">
+                <span>✓ Identified Individual</span>
+              </div>
+            </div>
+            <div class="active-recognition-card" id="webcam-identified-content">
+              <img src="" id="webcam-identified-avatar" class="recognition-avatar" alt="Avatar" />
+              <div class="recognition-meta">
+                <span id="webcam-identified-name" class="recognition-name">--</span>
+                <span id="webcam-identified-role" class="role-badge" style="width: fit-content;">Member</span>
+                <span id="webcam-identified-score" class="recognition-details">Confidence: 0%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Face Enrollment & 1:N Recognition -->
+          <div class="card sidebar-card">
+            <div class="card-header">
+              <div class="card-title">Individual Local DB Enrollment</div>
+            </div>
+            <p class="card-desc">
+              Save face snapshots and 128-D vector embeddings into your browser's persistent <strong>IndexedDB Local Database</strong>. Subsequent frames will automatically identify you!
+            </p>
+
+            <div class="enroll-form">
+              <input type="text" id="enroll-name-input" class="text-input" placeholder="Person full name (e.g. Alice)" maxlength="32" />
+              <div style="display: flex; gap: 8px;">
+                <select id="enroll-role-input" class="select-input" style="flex: 1;">
+                  <option value="Member">Role: Member</option>
+                  <option value="Admin">Role: Admin</option>
+                  <option value="Staff">Role: Staff</option>
+                  <option value="VIP">Role: VIP</option>
+                  <option value="Visitor">Role: Visitor</option>
+                </select>
+                <button id="btn-enroll-face" class="btn btn-accent" disabled style="flex: 1.3;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  Enroll Face
+                </button>
+              </div>
+            </div>
+
+            <div class="enrolled-faces-section">
+              <div class="enrolled-header">
+                <span>Local DB Individuals (<span id="enrolled-count">0</span>)</span>
+                <button id="btn-view-db-tab" class="btn-text">Manage DB →</button>
+              </div>
+              <div id="enrolled-list" class="enrolled-list">
+                <div class="empty-state">No faces enrolled yet. Point your camera and enroll above.</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- TAB 2: IMAGE INSPECTOR & 128-D DEEP-DIVE       -->
+    <!-- ============================================== -->
+    <div id="tab-image" class="tab-pane">
+      <div class="inspector-layout">
+        
+        <!-- Left: Image Viewer & Sample Picker -->
+        <div class="inspector-view-col">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Image Canvas & Landmark Mesh</div>
+              <div class="header-badges">
+                <span id="img-inference-time" class="metric-pill">0 ms</span>
+                <span id="img-faces-detected" class="metric-pill">0 Faces</span>
+              </div>
+            </div>
+
+            <!-- Sample Image Selector Buttons -->
+            <div class="sample-picker-bar">
+              <span class="sample-label">Presets:</span>
+              <button class="btn btn-sm btn-sample active" data-sample="sample1.jpg">Sample 1</button>
+              <button class="btn btn-sm btn-sample" data-sample="sample2.jpg">Sample 2</button>
+              <button class="btn btn-sm btn-sample" data-sample="sample3.jpg">Sample 3</button>
+              <button class="btn btn-sm btn-sample" data-sample="sample4.jpg">Sample 4</button>
+              <button class="btn btn-sm btn-sample" data-sample="sample5.jpg">Sample 5</button>
+              <button class="btn btn-sm btn-sample" data-sample="sample6.jpg">Sample 6 (Multi)</button>
+              <label class="btn btn-sm btn-outline file-upload-btn">
+                <input type="file" id="img-file-input" accept="image/*" style="display:none;" />
+                Upload Photo...
+              </label>
+            </div>
+
+            <!-- Image Viewport -->
+            <div class="image-viewport" id="image-viewport">
+              <img id="inspected-image" alt="Inspected portrait" crossorigin="anonymous" />
+              <canvas id="image-canvas"></canvas>
+            </div>
+
+            <!-- Face Selector if multiple faces found -->
+            <div id="multi-face-selector" class="multi-face-bar" style="display:none;">
+              <span class="multi-face-title">Select Face:</span>
+              <div id="face-chips-container" class="face-chips-container"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Right: 128-D Vector Deep-Dive Panel -->
+        <div class="inspector-vector-col">
+
+          <!-- Individual Face Recognition against Local DB -->
+          <div class="card" id="inspector-identity-card">
+            <div class="card-header">
+              <div class="card-title">
+                <span class="section-badge highlight" style="background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.4);">
+                  1:N Search
+                </span>
+                Local DB Face Recognition
+              </div>
+            </div>
+            <div id="inspector-recognition-result" class="active-recognition-card unmatched">
+              <div class="recognition-avatar-wrap" id="inspector-rec-avatar-wrap">
+                <div class="card-avatar-placeholder" style="width:48px; height:48px;">👤</div>
+              </div>
+              <div class="recognition-meta">
+                <span class="recognition-name" id="inspector-rec-name">Unregistered Individual</span>
+                <span class="recognition-details" id="inspector-rec-sub">Pointed to Local IndexedDB</span>
+              </div>
+              <div class="recognition-actions">
+                <button id="btn-inspector-enroll" class="btn btn-xs btn-accent">
+                  + Enroll to DB
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 128-D Vector Inspector Card -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <span class="section-badge highlight">128-Float Vector</span>
+                Face Recognition Embedding
+              </div>
+              <div class="vector-actions">
+                <button id="btn-copy-vector" class="btn btn-sm btn-outline">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy JSON
+                </button>
+              </div>
+            </div>
+
+            <!-- Interactive 128-Bar Spectrum Chart -->
+            <div class="spectrum-container">
+              <div class="spectrum-meta">
+                <span>128-Dimensional Spectrum (ResNet-34 Feature Map)</span>
+                <span id="spectrum-hover-info" class="hover-dim-info">Hover over bar to inspect</span>
+              </div>
+              <canvas id="inspector-spectrum-canvas" class="inspector-spectrum-canvas"></canvas>
+            </div>
+
+            <!-- Vector Mathematical Properties -->
+            <div class="vector-stats-grid">
+              <div class="stat-box">
+                <span class="stat-label">Vector Dimensions</span>
+                <span class="stat-val" id="stat-dim">128 Floats</span>
+              </div>
+              <div class="stat-box highlight">
+                <span class="stat-label">L2 Euclidean Norm ‖v‖₂</span>
+                <span class="stat-val" id="stat-norm">1.0000</span>
+                <span class="stat-sub">Unit Hypersphere S¹²⁷</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Mean Value (μ)</span>
+                <span class="stat-val" id="stat-mean">0.000</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Std Deviation (σ)</span>
+                <span class="stat-val" id="stat-std">0.088</span>
+              </div>
+            </div>
+
+            <!-- Facial Attributes & Demographics -->
+            <div class="attributes-grid">
+              <div class="attr-card">
+                <div class="attr-header">Demographics</div>
+                <div class="attr-row">
+                  <span class="attr-name">Estimated Age:</span>
+                  <span class="attr-val" id="attr-age">--</span>
+                </div>
+                <div class="attr-row">
+                  <span class="attr-name">Gender:</span>
+                  <span class="attr-val" id="attr-gender">--</span>
+                </div>
+              </div>
+              <div class="attr-card">
+                <div class="attr-header">Dominant Expression</div>
+                <div class="attr-row">
+                  <span class="attr-name">Expression:</span>
+                  <span class="attr-val" id="attr-expression">--</span>
+                </div>
+                <div class="attr-row">
+                  <span class="attr-name">Confidence:</span>
+                  <span class="attr-val" id="attr-expr-conf">--</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Raw Vector Explorer (Scrollable 128 elements) -->
+            <div class="raw-vector-section">
+              <div class="raw-vector-header">
+                <span>All 128 Raw Floats</span>
+                <span class="raw-vector-sub">32-bit Floating Point values</span>
+              </div>
+              <div id="raw-vector-list" class="raw-vector-list"></div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- TAB 3: FACE VERIFICATION & COMPARATOR          -->
+    <!-- ============================================== -->
+    <div id="tab-compare" class="tab-pane">
+      <div class="compare-layout">
+        
+        <!-- Controls & Presets -->
+        <div class="compare-toolbar card">
+          <div class="toolbar-title">1:1 Face Verification Mode</div>
+          <div class="compare-presets">
+            <span class="preset-label">Quick Tests:</span>
+            <button class="btn btn-sm btn-outline compare-preset-btn" data-pair="1-2">
+              Sample 1 vs 2 (Same Person • Match)
+            </button>
+            <button class="btn btn-sm btn-outline compare-preset-btn" data-pair="1-3">
+              Sample 1 vs 3 (Different People • Mismatch)
+            </button>
+            <button class="btn btn-sm btn-outline compare-preset-btn" data-pair="1-1">
+              Sample 1 vs 1 (Exact Photo • Identity)
+            </button>
+          </div>
+        </div>
+
+        <!-- Verification Results Dashboard -->
+        <div class="card verification-dashboard">
+          <div class="verdict-banner" id="verdict-banner">
+            <div class="verdict-icon" id="verdict-icon">⚖️</div>
+            <div class="verdict-content">
+              <div class="verdict-title" id="verdict-title">Comparing Faces...</div>
+              <div class="verdict-subtitle" id="verdict-subtitle">
+                Calculating Euclidean distance between 128-D vector embeddings
+              </div>
+            </div>
+            <div class="verdict-metric">
+              <span class="metric-big" id="verdict-distance">0.000</span>
+              <span class="metric-caption">Euclidean Distance (d)</span>
+            </div>
+          </div>
+
+          <!-- Match Threshold Slider -->
+          <div class="threshold-control-row">
+            <div class="threshold-label-group">
+              <span class="control-label">Matching Distance Threshold (T):</span>
+              <span class="control-val" id="threshold-val-display">0.60</span>
+              <span class="control-hint">(Standard Face-API threshold is 0.60; lower is stricter)</span>
+            </div>
+            <input type="range" id="threshold-slider" min="0.2" max="1.0" step="0.02" value="0.60" class="slider" />
+          </div>
+
+          <!-- Similarity Metrics Grid -->
+          <div class="similarity-grid">
+            <div class="sim-card">
+              <span class="sim-label">Euclidean Distance</span>
+              <span class="sim-val" id="metric-euclidean">0.0000</span>
+              <span class="sim-desc">d = √(∑ (Aᵢ - Bᵢ)²)</span>
+            </div>
+            <div class="sim-card">
+              <span class="sim-label">Cosine Similarity</span>
+              <span class="sim-val" id="metric-cosine">0.0000</span>
+              <span class="sim-desc">cos(θ) = (A · B) / (‖A‖ ‖B‖)</span>
+            </div>
+            <div class="sim-card">
+              <span class="sim-label">Match Confidence</span>
+              <span class="sim-val" id="metric-confidence">0.0%</span>
+              <span class="sim-desc">Normalized similarity index</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Side-by-Side Face Comparison Grid -->
+        <div class="compare-faces-grid">
+          
+          <!-- Face A -->
+          <div class="card compare-face-card">
+            <div class="card-header">
+              <div class="card-title">Subject A</div>
+              <label class="btn btn-xs btn-outline">
+                <input type="file" id="face-a-file" accept="image/*" style="display:none;" />
+                Change Image
+              </label>
+            </div>
+            <div class="compare-preview-box">
+              <img id="compare-img-a" src="/samples/sample1.jpg" alt="Subject A" crossorigin="anonymous" />
+              <canvas id="compare-canvas-a"></canvas>
+            </div>
+            <div class="compare-vector-preview">
+              <span class="mini-vector-title">Embedding A (128-D)</span>
+              <canvas id="mini-spectrum-a" class="mini-spectrum"></canvas>
+            </div>
+          </div>
+
+          <!-- Face B -->
+          <div class="card compare-face-card">
+            <div class="card-header">
+              <div class="card-title">Subject B</div>
+              <label class="btn btn-xs btn-outline">
+                <input type="file" id="face-b-file" accept="image/*" style="display:none;" />
+                Change Image
+              </label>
+            </div>
+            <div class="compare-preview-box">
+              <img id="compare-img-b" src="/samples/sample2.jpg" alt="Subject B" crossorigin="anonymous" />
+              <canvas id="compare-canvas-b"></canvas>
+            </div>
+            <div class="compare-vector-preview">
+              <span class="mini-vector-title">Embedding B (128-D)</span>
+              <canvas id="mini-spectrum-b" class="mini-spectrum"></canvas>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Differential Vector Spectrum (Δ = A - B) -->
+        <div class="card diff-vector-card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="section-badge">Differential Spectrum</span>
+              Dimension-by-Dimension Vector Delta (Δ = V_A - V_B)
+            </div>
+          </div>
+          <div class="diff-canvas-wrapper">
+            <canvas id="diff-spectrum-canvas" class="diff-spectrum-canvas"></canvas>
+          </div>
+          <div class="diff-legend">
+            <span>🟣 Purple = Dimension higher in Subject A</span>
+            <span>🟠 Amber = Dimension higher in Subject B</span>
+            <span>Zero line = Identical dimension feature</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- TAB 4: ARCHITECTURE & VECTOR MATH              -->
+    <!-- ============================================== -->
+    <div id="tab-architecture" class="tab-pane">
+      <div class="architecture-layout">
+        
+        <div class="card doc-hero-card">
+          <h2 class="doc-hero-title">How FaceAPI.js Generates 128-D Face Embeddings in the Browser</h2>
+          <p class="doc-hero-p">
+            FaceAPI.js runs an end-to-end deep learning pipeline compiled for <strong>TensorFlow.js WebGL and WebAssembly backends</strong>.
+            All neural network inference occurs client-side in the browser GPU without sending any image data to external servers.
+          </p>
+        </div>
+
+        <div class="pipeline-steps-grid">
+          
+          <!-- Step 1 -->
+          <div class="card step-card">
+            <div class="step-num">STAGE 01</div>
+            <h3 class="step-title">Face Detection</h3>
+            <div class="step-subtitle">SSD MobileNet v1 or TinyFace (YOLO)</div>
+            <p class="step-desc">
+              The input frame or image is scanned by a Single Shot MultiBox Detector (SSD) with depthwise separable convolutions or a lightweight TinyFace YOLO architecture.
+            </p>
+            <ul class="step-list">
+              <li>Generates bounding box coordinates <code>[x, y, width, height]</code></li>
+              <li>Calculates detector confidence score [0.0..1.0]</li>
+              <li>NMS (Non-Maximum Suppression) filters redundant overlapping boxes</li>
+            </ul>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="card step-card">
+            <div class="step-num">STAGE 02</div>
+            <h3 class="step-title">Landmark Alignment</h3>
+            <div class="step-subtitle">68-Point Facial Keypoint Mapping</div>
+            <p class="step-desc">
+              A specialized convolutional shape predictor localizes 68 distinct facial anatomical keypoints across eyebrows, eyes, nose bridge, nostrils, and outer/inner lips.
+            </p>
+            <ul class="step-list">
+              <li>Computes head pose Euler angles: pitch, roll, and yaw</li>
+              <li>Performs affine transformation to canonically align eyes horizontally</li>
+              <li>Normalizes scale and crops a standardized 112×112 face patch</li>
+            </ul>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="card step-card">
+            <div class="step-num">STAGE 03</div>
+            <h3 class="step-title">128-D Feature Extraction</h3>
+            <div class="step-subtitle">ResNet-34 Deep Metric Learning</div>
+            <p class="step-desc">
+              The aligned face is passed through a 34-layer Residual Neural Network (ResNet-34) trained via Triplet Loss to map human facial features into a 128-dimensional latent space.
+            </p>
+            <ul class="step-list">
+              <li>Outputs a <code>Float32Array(128)</code> embedding vector</li>
+              <li>L2-normalized onto a 128-dimensional unit hypersphere: <code>‖v‖₂ = 1.0</code></li>
+              <li>Faces of the same person cluster tightly together in hyperspherical space</li>
+            </ul>
+          </div>
+
+          <!-- Step 4 -->
+          <div class="card step-card">
+            <div class="step-num">STAGE 04</div>
+            <h3 class="step-title">Vector Distance Matching</h3>
+            <div class="step-subtitle">Euclidean Distance & Cosine Similarity</div>
+            <p class="step-desc">
+              Because vectors are normalized to unit length on the hypersphere, Euclidean distance directly measures biometric identity difference.
+            </p>
+            <ul class="step-list">
+              <li><strong>Euclidean Metric</strong>: <code>d = √(∑ (Aᵢ - Bᵢ)²)</code></li>
+              <li><strong>Verification Threshold</strong>: <code>d &lt; 0.60</code> signals same person</li>
+              <li><strong>FaceMatcher</strong>: Builds a k-d tree or linear vector database for 1:N recognition</li>
+            </ul>
+          </div>
+
+        </div>
+
+        <!-- Technical Deep-Dive Card -->
+        <div class="card tech-specs-card">
+          <div class="card-header">
+            <div class="card-title">Client-Side Runtime & Privacy Guarantees</div>
+          </div>
+          <div class="specs-table-wrapper">
+            <table class="specs-table">
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  <th>Implementation</th>
+                  <th>Characteristics</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Runtime Engine</strong></td>
+                  <td>TensorFlow.js (tfjs-backend-webgl)</td>
+                  <td>Hardware-accelerated fragment shaders running directly on GPU</td>
+                </tr>
+                <tr>
+                  <td><strong>Vector Dimension</strong></td>
+                  <td>128 floats (32-bit single precision)</td>
+                  <td>512 bytes per facial fingerprint</td>
+                </tr>
+                <tr>
+                  <td><strong>Norm Constraint</strong></td>
+                  <td>L2 Norm = 1.0 (Unit Hypersphere)</td>
+                  <td>Allows direct Euclidean distance metric without scale bias</td>
+                </tr>
+                <tr>
+                  <td><strong>Data Privacy</strong></td>
+                  <td>100% Zero-Cloud Execution</td>
+                  <td>Video feed and embeddings never leave browser RAM; no network requests</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- TAB 5: LOCAL FACE DATABASE & INDIVIDUALS       -->
+    <!-- ============================================== -->
+    <div id="tab-database" class="tab-pane">
+      <div class="db-layout">
+        
+        <!-- Database Header Card with Live Stats -->
+        <div class="db-header-card">
+          <div class="db-title-block">
+            <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+              <span>🗄️</span>
+              <span>Local Face Database & Registry</span>
+            </h3>
+            <p style="font-size: 0.82rem; color: var(--text-dim); margin-top: 4px;">
+              Persistent, client-side IndexedDB storage for registered individuals, multi-angle 128-D biometric embeddings, and face avatars.
+            </p>
+          </div>
+
+          <div class="db-stats-group">
+            <div class="db-stat-pill">
+              <span>Individuals:</span>
+              <strong id="db-stat-total-individuals">0</strong>
+            </div>
+            <div class="db-stat-pill">
+              <span>128-D Vectors:</span>
+              <strong id="db-stat-total-samples">0</strong>
+            </div>
+            <div class="db-stat-pill db-engine">
+              <span>Engine:</span>
+              <strong>IndexedDB</strong>
+            </div>
+            <div class="db-stat-pill" style="border-color: rgba(16, 185, 129, 0.3);">
+              <span style="color: var(--accent-green);">● 100% Client-Side Privacy</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toolbar: Search and Action Buttons -->
+        <div class="db-toolbar">
+          <div class="db-search-box">
+            <svg class="search-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="db-search-input" class="db-search-input" placeholder="Search individuals by name, role, or notes..." />
+          </div>
+
+          <div class="db-actions-group">
+            <button id="btn-db-new-individual" class="btn btn-accent">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="8.5" cy="7" r="4"></circle>
+                <line x1="20" y1="8" x2="20" y2="14"></line>
+                <line x1="23" y1="11" x2="17" y2="11"></line>
+              </svg>
+              + Enroll Person
+            </button>
+            <button id="btn-db-seed-demo" class="btn btn-outline" title="Populate database with sample portraits">
+              Seed Demo Profiles
+            </button>
+            <button id="btn-db-export" class="btn btn-outline" title="Download database backup">
+              Export JSON
+            </button>
+            <button id="btn-db-import" class="btn btn-outline" title="Restore database from JSON">
+              Import JSON
+            </button>
+            <input type="file" id="db-import-file-input" accept=".json" style="display:none;" />
+            <button id="btn-db-clear-all" class="btn btn-danger-outline" title="Delete all individuals">
+              Clear All
+            </button>
+          </div>
+        </div>
+
+        <!-- Empty State Container -->
+        <div id="db-empty-state" class="empty-state-box" style="display: none; text-align: center; padding: 48px 24px; background: var(--bg-card); border: 1px dashed var(--border-subtle); border-radius: var(--radius-md);">
+          <div style="font-size: 2.5rem; margin-bottom: 12px;">👤</div>
+          <h4 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 6px;">No Individuals Found</h4>
+          <p class="empty-state-text" style="font-size: 0.85rem; color: var(--text-dim); max-width: 460px; margin: 0 auto 18px;"></p>
+        </div>
+
+        <!-- Individuals Grid Container -->
+        <div id="db-individuals-grid" class="individuals-grid"></div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ============================================== -->
+  <!-- MODALS FOR LOCAL DATABASE MANAGEMENT           -->
+  <!-- ============================================== -->
+
+  <!-- Modal 1: Enroll New Individual -->
+  <div id="modal-enroll-individual" class="app-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h4 class="modal-title">Enroll New Individual into Local DB</h4>
+        <button id="btn-close-enroll-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <form id="form-enroll-individual">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="enroll-modal-name">Full Name *</label>
+            <input type="text" id="enroll-modal-name" class="form-input" placeholder="e.g. Vladimir Mandic, Alice Chen" required maxlength="32" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="enroll-modal-role">Role / Department</label>
+            <select id="enroll-modal-role" class="form-select">
+              <option value="Member">Member</option>
+              <option value="Admin">Admin</option>
+              <option value="Staff">Staff</option>
+              <option value="VIP">VIP</option>
+              <option value="Specialist">Specialist</option>
+              <option value="Visitor">Visitor</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="enroll-modal-notes">Notes / Bio (Optional)</label>
+            <textarea id="enroll-modal-notes" class="form-textarea" placeholder="Add optional badge ID, department, or identification notes..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Face Biometric Capture *</label>
+            <div class="capture-source-buttons">
+              <label class="btn btn-sm btn-outline file-upload-btn" style="flex: 1; text-align: center;">
+                <input type="file" id="enroll-photo-upload" accept="image/*" style="display:none;" />
+                Upload Photo...
+              </label>
+              <button type="button" id="btn-enroll-from-webcam-modal" class="btn btn-sm btn-outline" style="flex: 1;">
+                Webcam Snapshot
+              </button>
+            </div>
+          </div>
+
+          <div id="enroll-preview-box" class="enroll-preview-box">
+            <div class="empty-preview-prompt">No face captured yet. Upload a photo or capture from webcam.</div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-accent">Save to Local Database</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Add Sample (Extra Angle) -->
+  <div id="modal-add-sample" class="app-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h4 class="modal-title">Add Extra Face Angle: <span id="modal-add-sample-name" style="color: var(--accent-cyan);">--</span></h4>
+        <button id="btn-close-sample-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <form id="form-add-sample">
+        <div class="modal-body">
+          <p style="font-size: 0.82rem; color: var(--text-dim);">
+            Adding multiple face angles (front, slight tilt, different lighting) significantly enhances 1:N recognition accuracy.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">Capture Extra Face Sample</label>
+            <div class="capture-source-buttons">
+              <label class="btn btn-sm btn-outline file-upload-btn" style="flex: 1; text-align: center;">
+                <input type="file" id="sample-photo-upload" accept="image/*" style="display:none;" />
+                Upload Photo...
+              </label>
+              <button type="button" id="btn-sample-from-webcam" class="btn btn-sm btn-outline" style="flex: 1;">
+                Webcam Snapshot
+              </button>
+            </div>
+          </div>
+
+          <div id="sample-preview-box" class="enroll-preview-box">
+            <div class="empty-preview-prompt">Upload an extra photo or capture from webcam</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-accent">Append Sample Vector</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 3: Edit Individual -->
+  <div id="modal-edit-individual" class="app-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h4 class="modal-title">Edit Individual Details</h4>
+        <button id="btn-close-edit-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <form id="form-edit-individual">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="edit-modal-name">Full Name *</label>
+            <input type="text" id="edit-modal-name" class="form-input" required maxlength="32" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="edit-modal-role">Role</label>
+            <input type="text" id="edit-modal-role" class="form-input" maxlength="24" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="edit-modal-notes">Notes</label>
+            <textarea id="edit-modal-notes" class="form-textarea"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 4: Inspect Samples -->
+  <div id="modal-inspect-individual" class="app-modal">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <h4 class="modal-title">Enrolled 128-D Vectors: <span id="inspect-modal-name" style="color: var(--accent-cyan);">--</span></h4>
+        <button id="btn-close-inspect-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="inspect-modal-samples-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
